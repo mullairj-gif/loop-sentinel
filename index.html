@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔄 Loop Sentinel v2 — Microsoft Edition | Governed Autonomous Code Agent · Kristal Labs</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #0a0a0f;
+            --bg-surface: #111118;
+            --bg-card: #1a1a24;
+            --bg-terminal: #0d0d12;
+            --bg-input: #22222f;
+            --azure: #0078D4;
+            --azure-glow: rgba(0,120,212,0.25);
+            --caution: #ffcc00;
+            --caution-glow: rgba(255,204,0,0.2);
+            --danger: #ff3355;
+            --danger-glow: rgba(255,51,85,0.2);
+            --success: #00ff88;
+            --success-glow: rgba(0,255,136,0.2);
+            --quantum: #00d4ff;
+            --quantum-glow: rgba(0,212,255,0.2);
+            --purple: #a855f7;
+            --purple-glow: rgba(168,85,247,0.2);
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --border: rgba(255,255,255,0.1);
+            --accent: var(--azure);
+            --accent-glow: var(--azure-glow);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:var(--bg-void); color:var(--text); min-height:100vh; overflow-x:hidden; }
+        .scanlines { position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px); pointer-events:none; z-index:1000; opacity:0.2; }
+        .app { display:grid; grid-template-rows:auto auto 1fr; min-height:100vh; position:relative; z-index:1; }
+
+        /* Header */
+        .header { background:linear-gradient(90deg,var(--bg-surface),var(--bg-card)); border-bottom:2px solid var(--accent); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 0 40px var(--accent-glow); flex-wrap:wrap; gap:12px; }
+        .logo-section { display:flex; align-items:center; gap:16px; }
+        .logo { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:var(--accent); text-shadow:0 0 20px var(--accent-glow); display:flex; align-items:center; gap:10px; }
+        .logo-icon { font-size:28px; animation:spin 4s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .logo-icon.paused { animation-play-state:paused; }
+        .subtitle { font-size:11px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+        .version-badge { font-size:9px; padding:3px 10px; background:var(--accent); color:#fff; font-weight:700; border-radius:4px; margin-left:6px; }
+        .rai-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.2); border-radius:20px; font-size:10px; color:var(--success); font-weight:600; letter-spacing:0.5px; }
+        .header-stats { display:flex; gap:12px; flex-wrap:wrap; }
+        .stat-box { text-align:center; padding:6px 14px; background:var(--bg-void); border:1px solid var(--border); border-radius:8px; min-width:70px; }
+        .stat-value { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; }
+        .stat-value.loops { color:var(--accent); }
+        .stat-value.errors { color:var(--danger); }
+        .stat-value.success { color:var(--success); }
+        .stat-value.time { color:var(--quantum); }
+        .stat-value.cost { color:var(--caution); }
+        .stat-label { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; }
+
+        /* Loop Progress Bar */
+        .loop-progress-bar { background:var(--bg-surface); border-bottom:1px solid var(--border); padding:8px 24px; display:flex; align-items:center; gap:16px; }
+        .progress-track { flex:1; height:8px; background:var(--bg-input); border-radius:4px; overflow:hidden; position:relative; }
+        .progress-fill { height:100%; background:var(--accent); border-radius:4px; transition:width 0.5s ease, background 0.3s; width:0%; }
+        .progress-fill.warning { background:var(--caution); }
+        .progress-fill.danger { background:var(--danger); animation:pulse-danger 0.5s infinite; }
+        @keyframes pulse-danger { 0%,100%{opacity:1} 50%{opacity:0.6} }
+        .progress-label { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); white-space:nowrap; min-width:160px; }
+        .progress-status { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; white-space:nowrap; }
+        .compliance-badge { padding:3px 10px; border-radius:12px; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+        .compliance-good { background:rgba(0,255,136,0.15); color:var(--success); }
+        .compliance-warn { background:rgba(255,204,0,0.15); color:var(--caution); }
+        .compliance-bad { background:rgba(255,51,85,0.15); color:var(--danger); }
+
+        /* Main */
+        .main { display:grid; grid-template-columns:380px 1fr; overflow:hidden; }
+
+        /* Control Panel */
+        .control-panel { background:var(--bg-surface); border-right:1px solid var(--border); padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+        .panel-section { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+        .section-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+        .section-icon { font-size:16px; }
+        .section-title { font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; }
+        .form-group { margin-bottom:10px; }
+        .form-label { font-size:10px; color:var(--text-muted); margin-bottom:5px; display:block; text-transform:uppercase; letter-spacing:0.5px; }
+        .form-input,.form-select,.form-textarea { width:100%; padding:9px 11px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:13px; transition:border 0.2s; }
+        .form-input:focus,.form-select:focus,.form-textarea:focus { outline:none; border-color:var(--accent); }
+        .form-textarea { resize:vertical; min-height:80px; }
+        .form-select option { background:var(--bg-card); }
+        .form-input.hidden-field { display:none; }
+
+        /* Kill Switch */
+        .killswitch-section { border-color:var(--danger); }
+        .killswitch-section .section-title { color:var(--danger); }
+
+        /* Policy Mode */
+        .policy-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px; }
+        .policy-btn { padding:10px 8px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; transition:all 0.2s; font-family:inherit; }
+        .policy-btn:hover { border-color:var(--accent); }
+        .policy-btn.active { border-color:var(--accent); background:var(--accent-glow); color:var(--text); }
+        .policy-btn .policy-icon { font-size:18px; display:block; margin-bottom:4px; }
+        .policy-btn .policy-name { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
+
+        .killswitch-row { display:flex; align-items:center; gap:14px; }
+        .loop-display { text-align:center; }
+        .loop-current { font-family:'JetBrains Mono',monospace; font-size:32px; font-weight:700; color:var(--danger); text-shadow:0 0 20px var(--danger-glow); }
+        .loop-max { font-size:10px; color:var(--text-dim); display:block; }
+        .loop-slider { flex:1; accent-color:var(--danger); height:6px; }
+
+        /* Buttons */
+        .btn-primary { width:100%; padding:13px; background:linear-gradient(135deg,var(--accent),#005a9e); border:none; border-radius:10px; color:#fff; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; }
+        .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px var(--accent-glow); }
+        .btn-primary:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+        .btn-primary.running { background:linear-gradient(135deg,var(--quantum),var(--purple)); animation:pulse-btn 2s infinite; }
+        @keyframes pulse-btn { 0%,100%{box-shadow:0 0 20px var(--quantum-glow)} 50%{box-shadow:0 0 40px var(--quantum-glow)} }
+        .btn-abort { width:100%; padding:11px; background:var(--danger); border:none; border-radius:10px; color:#fff; font-weight:700; font-size:12px; cursor:pointer; display:none; margin-top:6px; }
+        .btn-abort.visible { display:block; }
+        .btn-export { width:100%; padding:10px; background:var(--bg-card); border:1px solid var(--purple); border-radius:10px; color:var(--purple); font-weight:600; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; margin-top:4px; }
+        .btn-export:hover { background:var(--purple-glow); }
+
+        /* Terminal */
+        .terminal-panel { display:flex; flex-direction:column; overflow:hidden; }
+        .terminal-header { padding:10px 20px; background:var(--bg-card); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+        .terminal-title { display:flex; align-items:center; gap:10px; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; }
+        .terminal-dot { width:8px; height:8px; border-radius:50%; background:var(--text-dim); transition:all 0.3s; }
+        .terminal-dot.active { background:var(--success); box-shadow:0 0 12px var(--success-glow); animation:blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .terminal-actions { display:flex; gap:6px; }
+        .terminal-btn { padding:4px 10px; background:var(--bg-input); border:1px solid var(--border); border-radius:6px; color:var(--text-muted); font-size:10px; cursor:pointer; font-family:'JetBrains Mono',monospace; }
+        .terminal-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .terminal-btn.highlight { border-color:var(--purple); color:var(--purple); }
+
+        .terminal-body { flex:1; overflow-y:auto; padding:14px 18px; background:var(--bg-terminal); font-family:'JetBrains Mono',monospace; font-size:12px; line-height:1.7; scroll-behavior:smooth; }
+        .terminal-body::-webkit-scrollbar { width:6px; }
+        .terminal-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+        .terminal-body.warning-zone { border:2px solid var(--caution); box-shadow:inset 0 0 30px var(--caution-glow); animation:pulse-warn 1.5s infinite; }
+        .terminal-body.danger-zone { border:2px solid var(--danger); box-shadow:inset 0 0 30px var(--danger-glow); animation:pulse-danger-border 0.8s infinite; }
+        @keyframes pulse-warn { 0%,100%{border-color:var(--caution)} 50%{border-color:transparent} }
+        @keyframes pulse-danger-border { 0%,100%{border-color:var(--danger)} 50%{border-color:rgba(255,51,85,0.3)} }
+
+        .log-entry { margin-bottom:6px; padding:6px 10px; border-radius:6px; border-left:3px solid var(--text-dim); background:rgba(255,255,255,0.02); }
+        .log-entry.error { border-left-color:var(--danger); background:rgba(255,51,85,0.05); }
+        .log-entry.success { border-left-color:var(--success); background:rgba(0,255,136,0.05); }
+        .log-entry.warning { border-left-color:var(--caution); background:rgba(255,204,0,0.05); }
+        .log-entry.loop { border-left-color:var(--quantum); background:rgba(0,212,255,0.05); }
+        .log-entry.ai-ask { border-left-color:var(--purple); background:rgba(168,85,247,0.05); }
+        .log-entry.ai-response { border-left-color:var(--success); background:rgba(0,255,136,0.03); }
+        .log-entry.diff { border-left-color:var(--caution); background:rgba(255,204,0,0.03); }
+        .log-entry.governance { border-left-color:var(--danger); background:rgba(255,51,85,0.08); font-weight:600; }
+        .log-header { display:flex; justify-content:space-between; margin-bottom:3px; }
+        .log-label { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+        .log-time { font-size:9px; color:var(--text-dim); }
+        .log-content { color:var(--text-muted); word-wrap:break-word; white-space:pre-wrap; }
+        .log-entry.system { border-left-color:var(--accent); background:rgba(0,120,212,0.05); }
+
+        /* Live Preview Panel */
+        .preview-split { display:grid; grid-template-rows:1fr auto; overflow:hidden; }
+        .preview-iframe-wrap { border-top:1px solid var(--border); background:#fff; display:none; max-height:35vh; overflow:hidden; position:relative; }
+        .preview-iframe-wrap.active { display:block; }
+        .preview-iframe-wrap iframe { width:100%; height:100%; min-height:200px; border:none; }
+        .preview-label { position:absolute; top:6px; right:10px; background:rgba(0,0,0,0.7); color:var(--text); font-size:9px; padding:3px 8px; border-radius:4px; font-family:'JetBrains Mono',monospace; z-index:2; }
+
+        .status-bar { padding:8px 18px; background:var(--bg-surface); border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+        .status-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); }
+        .status-dot { width:6px; height:6px; border-radius:50%; background:var(--text-dim); }
+        .status-dot.running { background:var(--success); box-shadow:0 0 8px var(--success-glow); }
+
+        /* Modal */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; align-items:center; justify-content:center; z-index:500; padding:20px; }
+        .modal-overlay.active { display:flex; }
+        .modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:90%; max-width:850px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(0,0,0,0.5); }
+        .modal-header { padding:18px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+        .modal-title { font-size:16px; font-weight:700; }
+        .modal-close { width:34px; height:34px; background:rgba(255,255,255,0.1); border:none; border-radius:8px; color:var(--text); font-size:16px; cursor:pointer; }
+        .modal-body { padding:20px; overflow-y:auto; flex:1; }
+        .modal-code { background:var(--bg-terminal); border-radius:10px; padding:16px; font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.5; color:var(--text); white-space:pre-wrap; overflow-x:auto; max-height:45vh; }
+        .modal-actions { padding:14px 20px; background:var(--bg-surface); border-top:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; }
+        .modal-btn { flex:1; padding:12px; border:none; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; min-width:100px; }
+        .modal-btn.primary { background:var(--success); color:#000; }
+        .modal-btn.secondary { background:var(--bg-input); color:var(--text-muted); border:1px solid var(--border); }
+        .modal-btn.purple { background:var(--purple); color:#fff; }
+        .modal-btn.azure { background:var(--azure); color:#fff; }
+
+        /* Learning Summary */
+        .learning-summary { background:var(--bg-surface); border:1px solid var(--accent); border-radius:10px; padding:16px; margin-top:12px; }
+        .learning-title { font-size:13px; font-weight:700; color:var(--accent); margin-bottom:8px; }
+        .learning-item { font-size:12px; color:var(--text-muted); margin-bottom:4px; padding-left:12px; border-left:2px solid var(--border); }
+
+        /* Negotiate Modal */
+        .negotiate-box { background:var(--bg-surface); border:2px solid var(--danger); border-radius:12px; padding:20px; text-align:center; }
+        .negotiate-box h3 { color:var(--danger); font-size:16px; margin-bottom:12px; }
+        .negotiate-stats { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.8; }
+        .negotiate-actions { display:flex; gap:10px; justify-content:center; }
+
+        /* RAI Section */
+        .rai-section { background:var(--bg-card); border:1px solid rgba(0,255,136,0.15); border-radius:12px; padding:14px; }
+        .rai-section .section-title { color:var(--success); }
+        .rai-content { font-size:11px; color:var(--text-dim); line-height:1.6; }
+        .rai-quote { font-style:italic; color:var(--text-muted); margin-top:8px; font-size:11px; border-left:2px solid var(--success); padding-left:10px; }
+
+        @media (max-width:768px) {
+            .main { grid-template-columns:1fr; }
+            .header { flex-direction:column; }
+            .policy-grid { grid-template-columns:1fr; }
+        }
+        button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    </style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="app">
+    <header class="header">
+        <div class="logo-section">
+            <div class="logo">
+                <span class="logo-icon paused" id="logoIcon">🔄</span>
+                <span>LOOP SENTINEL</span>
+                <span class="version-badge">v2.0 MICROSOFT EDITION</span>
+            </div>
+            <div class="subtitle">Governed Autonomous Code Agent · Kristal Labs</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div class="rai-badge">🛡 Bounded Autonomy · Human Governance</div>
+            <span id="providerBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);font-weight:600;">Azure OpenAI</span>
+        </div>
+        <div class="header-stats">
+            <div class="stat-box"><div class="stat-value loops" id="loopCount">0</div><div class="stat-label">Loops</div></div>
+            <div class="stat-box"><div class="stat-value errors" id="errorCount">0</div><div class="stat-label">Errors</div></div>
+            <div class="stat-box"><div class="stat-value success" id="successCount">0</div><div class="stat-label">Passes</div></div>
+            <div class="stat-box"><div class="stat-value time" id="timeDisplay">0s</div><div class="stat-label">Time</div></div>
+            <div class="stat-box"><div class="stat-value cost" id="costDisplay">$0</div><div class="stat-label">Est. Cost</div></div>
+        </div>
+    </header>
+
+    <!-- Loop Progress -->
+    <div class="loop-progress-bar">
+        <span class="progress-label">Loop <strong id="progressCurrent">0</strong> / <strong id="progressMax">5</strong> — <span id="progressStatusText">Ready</span></span>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <span class="compliance-badge compliance-good" id="complianceBadge">● AWAITING RUN</span>
+    </div>
+
+    <main class="main">
+        <div class="control-panel">
+            <!-- Provider Config -->
+            <div class="panel-section">
+                <div class="section-header"><span class="section-icon">🔌</span><span class="section-title">Provider</span></div>
+                <div class="form-group">
+                    <label class="form-label">AI Provider</label>
+                    <select class="form-select" id="providerSelect" onchange="switchProvider()">
+                        <option value="azure">Azure OpenAI ★ Recommended</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                    </select>
+                </div>
+                <!-- Azure fields -->
+                <div id="azureFields">
+                    <div class="form-group">
+                        <label class="form-label">Azure Endpoint</label>
+                        <input type="text" class="form-input" id="azureEndpoint" placeholder="https://YOUR-RESOURCE.openai.azure.com" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deployment Name</label>
+                        <input type="text" class="form-input" id="azureDeployment" placeholder="e.g. gpt-4o (required)" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-input" id="azureKey" placeholder="Azure API key..." />
+                        <div style="font-size:9px;color:var(--text-dim);margin-top:3px;">Keys stay in your browser. Never transmitted except to your Azure endpoint.</div>
+                    </div>
+                </div>
+                <!-- Claude fields -->
+                <div id="claudeFields" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Claude API Key</label>
+                        <input type="password" class="form-input" id="claudeKey" placeholder="sk-ant-..." />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model</label>
+                        <select class="form-select" id="claudeModel">
+                            <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target -->
+            <div class="panel-section">
+                <div class="section-header"><span class="section-icon">🎯</span><span class="section-title">Target</span></div>
+                <div class="form-group">
+                    <label class="form-label">Describe what to build</label>
+                    <textarea class="form-textarea" id="targetInput" placeholder="Build a Pomodoro timer with customizable intervals, sound notifications, and session history..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Additional Requirements (optional)</label>
+                    <textarea class="form-textarea" id="requirementsInput" style="min-height:50px;" placeholder="Dark theme, mobile-responsive, no frameworks..."></textarea>
+                </div>
+            </div>
+
+            <!-- Governance: Policy + Kill Switch -->
+            <div class="panel-section killswitch-section">
+                <div class="section-header"><span class="section-icon">🛡️</span><span class="section-title">Governance Controls</span></div>
+                <label class="form-label">Risk Posture</label>
+                <div class="policy-grid">
+                    <button class="policy-btn" id="policyStrict" onclick="setPolicy('strict')">
+                        <span class="policy-icon">🔒</span>
+                        <span class="policy-name">Strict</span>
+                    </button>
+                    <button class="policy-btn active" id="policyBalanced" onclick="setPolicy('balanced')">
+                        <span class="policy-icon">⚖️</span>
+                        <span class="policy-name">Balanced</span>
+                    </button>
+                    <button class="policy-btn" id="policyExperimental" onclick="setPolicy('experimental')">
+                        <span class="policy-icon">🧪</span>
+                        <span class="policy-name">Explore</span>
+                    </button>
+                </div>
+                <label class="form-label">Kill Switch — Max Loops</label>
+                <div class="killswitch-row">
+                    <div class="loop-display">
+                        <div class="loop-current" id="maxLoopDisplay">5</div>
+                        <span class="loop-max">of 10</span>
+                    </div>
+                    <input type="range" class="loop-slider" id="maxLoopSlider" min="1" max="10" value="5" oninput="updateMaxLoop(this.value)" />
+                </div>
+            </div>
+
+            <!-- Launch -->
+            <button class="btn-primary" id="launchBtn" onclick="startLoopSentinel()">
+                <span>🚀</span><span>INITIATE LOOP SENTINEL</span>
+            </button>
+            <button class="btn-abort" id="abortBtn" onclick="abortLoop()">⛔ EMERGENCY ABORT</button>
+            <button class="btn-export" id="exportMdBtn" onclick="exportLoopReport()" style="display:none;">📄 Export Markdown Report</button>
+            <button class="btn-export" id="exportJsonBtn" onclick="exportAuditJSON()" style="display:none;">📊 Export JSON Audit</button>
+
+            <!-- RAI Section -->
+            <div class="rai-section">
+                <div class="section-header"><span class="section-icon">🛡️</span><span class="section-title" style="color:var(--success);">Responsible AI by Design</span></div>
+                <div class="rai-content">
+                    <strong>Bounded Autonomy:</strong> Agent reasons freely within loops but cannot exceed human-defined limits.<br>
+                    <strong>Full Transparency:</strong> Every iteration logged with timestamps, tokens, errors.<br>
+                    <strong>Human Governance:</strong> Kill switch + emergency abort at any time.<br>
+                    <strong>Resource Awareness:</strong> Token usage and cost displayed in real-time.
+                </div>
+                <div class="rai-quote">"AI can THINK autonomously but should not ACT autonomously." — Dr. Mullair Jeudi, MD</div>
+            </div>
+        </div>
+
+        <!-- Terminal + Preview -->
+        <div class="preview-split">
+            <div class="terminal-panel">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        <div class="terminal-dot" id="terminalDot"></div>
+                        <span>GOVERNANCE TERMINAL</span>
+                    </div>
+                    <div class="terminal-actions">
+                        <button class="terminal-btn" onclick="clearTerminal()">Clear</button>
+                        <button class="terminal-btn" onclick="exportLogs()">Logs</button>
+                        <button class="terminal-btn highlight" id="reportBtnTop" onclick="exportLoopReport()" style="display:none;">📊 Report</button>
+                    </div>
+                </div>
+                <div class="terminal-body" id="terminalBody">
+                    <div class="log-entry system">
+                        <div class="log-header"><span class="log-label">System</span><span class="log-time"></span></div>
+                        <div class="log-content">Loop Sentinel v2.0 Microsoft Edition initialized. Governed autonomous code agent ready.</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Live Preview -->
+            <div class="preview-iframe-wrap" id="previewWrap">
+                <span class="preview-label" id="previewLabel">SANDBOX PREVIEW — Loop 0</span>
+                <iframe id="previewFrame" sandbox="allow-scripts"></iframe>
+            </div>
+            <div class="status-bar">
+                <div class="status-item"><div class="status-dot" id="statusDot"></div><span id="statusText">Ready</span></div>
+                <div class="status-item"><span id="tokenEstimate">Tokens: 0</span></div>
+                <div class="status-item"><span id="providerDisplay">Provider: Azure OpenAI</span></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Success Modal -->
+<div class="modal-overlay" id="successModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle">✅ Code Generation Complete</h2>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="learningSummary"></div>
+            <div class="modal-code" id="finalCode"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" onclick="copyFinalCode()">📋 Copy Code</button>
+            <button class="modal-btn primary" onclick="downloadCode()">💾 Download HTML</button>
+            <button class="modal-btn purple" onclick="closeModal();exportLoopReport();">📄 MD Report</button>
+            <button class="modal-btn azure" onclick="closeModal();exportAuditJSON();">📊 JSON Audit</button>
+        </div>
+    </div>
+</div>
+
+<!-- Negotiate Modal (Kill Switch Hit) -->
+<div class="modal-overlay" id="negotiateModal">
+    <div class="modal" style="max-width:500px;">
+        <div class="modal-body">
+            <div class="negotiate-box">
+                <h3>🛑 HUMAN GOVERNANCE ENFORCED</h3>
+                <div class="negotiate-stats" id="negotiateStats"></div>
+                <div class="negotiate-actions">
+                    <button class="modal-btn secondary" onclick="acceptCurrentResult()" style="flex:1;">✅ Accept Output</button>
+                    <button class="modal-btn purple" onclick="extendAndResume()" style="flex:1;">🔄 Extend Governance (+3)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// 🔄 LOOP SENTINEL v2.0 — MICROSOFT EDITION
+// Governed Autonomous Code Agent
+// Built by Dr. Mullair Jeudi, MD · Kristal Labs
+// "AI can THINK autonomously but should not ACT autonomously"
+// ═══════════════════════════════════════════════════════════
+
+const STATE = {
+    isRunning:false, currentLoop:0, maxLoops:5,
+    currentCode:'', finalCode:'', aborted:false,
+    startTime:null, totalTokens:0, provider:'azure',
+    target:'', requirements:'', complianceScore:100,
+    errorsThisRun:0, errorsResolved:0, errorHistory:[]
+};
+let stats = { loops:0, errorsFix:0, successes:0 };
+let auditTrail = [];
+
+// ═══ PROVIDER SYSTEM ═══
+function switchProvider() {
+    if (STATE.isRunning) { document.getElementById('providerSelect').value = STATE.provider; return; }
+    const p = document.getElementById('providerSelect').value;
+    STATE.provider = p;
+    document.getElementById('azureFields').style.display = p === 'azure' ? 'block' : 'none';
+    document.getElementById('claudeFields').style.display = p === 'anthropic' ? 'block' : 'none';
+    document.getElementById('providerBadge').textContent = p === 'azure' ? 'Azure OpenAI' : 'Claude';
+    document.getElementById('providerDisplay').textContent = 'Provider: ' + (p === 'azure' ? 'Azure OpenAI' : 'Claude');
+    // Update accent color
+    document.documentElement.style.setProperty('--accent', p === 'azure' ? '#0078D4' : '#00d4ff');
+    document.documentElement.style.setProperty('--accent-glow', p === 'azure' ? 'rgba(0,120,212,0.25)' : 'rgba(0,212,255,0.25)');
+}
+
+async function callAI(prompt) {
+    if (STATE.provider === 'azure') return await callAzure(prompt);
+    return await callClaude(prompt);
+}
+
+async function callAzure(prompt) {
+    const endpoint = document.getElementById('azureEndpoint').value.trim().replace(/\/+$/, '');
+    const deployment = document.getElementById('azureDeployment').value.trim();
+    const key = document.getElementById('azureKey').value.trim();
+    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-10-21`;
+    const r = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'api-key':key },
+        body:JSON.stringify({ messages:[{role:'user',content:prompt}], max_tokens:8192, temperature:0.7 })
+    });
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `Azure error ${r.status}`); }
+    const d = await r.json();
+    if (!d.choices || !d.choices[0]) throw new Error('Azure returned empty response — check deployment/model');
+    return d.choices[0].message.content;
+}
+
+async function callClaude(prompt) {
+    const key = document.getElementById('claudeKey').value.trim();
+    const model = document.getElementById('claudeModel').value;
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'x-api-key':key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+        body:JSON.stringify({ model, max_tokens:8192, messages:[{role:'user',content:prompt}] })
+    });
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `Claude error ${r.status}`); }
+    const d = await r.json();
+    if (!d.content || !d.content[0]) throw new Error('Claude returned empty response — check API key/model');
+    return d.content[0].text;
+}
+
+// ═══ POLICY MODE ═══
+function setPolicy(mode) {
+    document.querySelectorAll('.policy-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('policy' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+    const presets = { strict:{loops:3}, balanced:{loops:5}, experimental:{loops:10} };
+    const p = presets[mode];
+    STATE.maxLoops = p.loops;
+    document.getElementById('maxLoopSlider').value = p.loops;
+    document.getElementById('maxLoopDisplay').textContent = p.loops;
+    updateProgressDisplay();
+}
+
+function updateMaxLoop(v) {
+    STATE.maxLoops = parseInt(v);
+    document.getElementById('maxLoopDisplay').textContent = v;
+    document.querySelectorAll('.policy-btn').forEach(b => b.classList.remove('active'));
+    updateProgressDisplay();
+}
+
+// ═══ PROGRESS & COMPLIANCE ═══
+function updateProgressDisplay() {
+    const pct = STATE.maxLoops > 0 ? (STATE.currentLoop / STATE.maxLoops) * 100 : 0;
+    const fill = document.getElementById('progressFill');
+    fill.style.width = pct + '%';
+    fill.className = 'progress-fill' + (pct >= 100 ? ' danger' : pct >= 80 ? ' warning' : '');
+    document.getElementById('progressCurrent').textContent = STATE.currentLoop;
+    document.getElementById('progressMax').textContent = STATE.maxLoops;
+
+    const tb = document.getElementById('terminalBody');
+    tb.classList.remove('warning-zone','danger-zone');
+    if (pct >= 100) tb.classList.add('danger-zone');
+    else if (pct >= 80) tb.classList.add('warning-zone');
+}
+
+function updateComplianceBadge(score) {
+    const badge = document.getElementById('complianceBadge');
+    if (score >= 90) { badge.textContent = '✅ COMPLIANCE CHECKS PASS'; badge.className = 'compliance-badge compliance-good'; }
+    else if (score >= 70) { badge.textContent = '⚠️ REVIEW ADVISED'; badge.className = 'compliance-badge compliance-warn'; }
+    else { badge.textContent = '❌ LOW CONFIDENCE'; badge.className = 'compliance-badge compliance-bad'; }
+}
+
+function updateCost() {
+    const rate = STATE.provider === 'azure' ? 0.000005 : 0.000003;
+    const cost = (STATE.totalTokens / 1000) * rate;
+    document.getElementById('costDisplay').textContent = cost < 0.01 ? '< $0.01' : '$' + cost.toFixed(4);
+    document.getElementById('tokenEstimate').textContent = 'Tokens: ~' + STATE.totalTokens.toLocaleString();
+}
+
+// ═══ AUDIT TRAIL ═══
+function recordAudit(entry) {
+    auditTrail.push({ ...entry, timestamp:new Date().toISOString(), loopNumber:STATE.currentLoop, elapsed:STATE.startTime ? ((Date.now()-STATE.startTime)/1000).toFixed(1)+'s' : '0s' });
+}
+
+// ═══ THE LOOP ═══
+async function startLoopSentinel() {
+    if (STATE.isRunning) return;
+    const target = document.getElementById('targetInput').value.trim();
+    const requirements = document.getElementById('requirementsInput').value.trim();
+    if (!target) { log('ERROR: No target description','error'); return; }
+
+    // Validate credentials
+    if (STATE.provider === 'azure') {
+        const ep = document.getElementById('azureEndpoint').value.trim();
+        const dep = document.getElementById('azureDeployment').value.trim();
+        const ak = document.getElementById('azureKey').value.trim();
+        if (!ep || !ak) { log('Missing: Azure Endpoint + API Key (Provider panel)','error'); return; }
+        if (!dep) { log('Missing: Azure Deployment Name (Provider panel)','error'); return; }
+    } else {
+        if (!document.getElementById('claudeKey').value.trim()) { log('Missing: Claude API Key (Provider panel)','error'); return; }
+    }
+
+    Object.assign(STATE, { isRunning:true, currentLoop:0, currentCode:'', finalCode:'', aborted:false, startTime:Date.now(), totalTokens:0, target, requirements, complianceScore:100, errorsThisRun:0, errorsResolved:0, errorHistory:[] });
+    auditTrail = [];
+    stats = { loops:0, errorsFix:0, successes:0 };
+
+    recordAudit({ type:'init', target:target.substring(0,100), requirements:requirements.substring(0,100), maxLoops:STATE.maxLoops, provider:STATE.provider });
+
+    setRunningState(true); startTimer(); updateProgressDisplay();
+    log('🎯 TARGET: ' + target.substring(0,80) + (target.length>80?'...':''), 'system');
+    log('🛡️ Governance: Kill Switch at ' + STATE.maxLoops + ' loops | Provider: ' + (STATE.provider==='azure'?'Azure OpenAI':'Claude'), 'warning');
+    log('🔄 INITIATING LOOP SENTINEL...', 'system');
+    await generateCode(target, requirements);
+}
+
+async function generateCode(target, requirements) {
+    STATE.currentLoop++;
+    stats.loops = STATE.currentLoop;
+    updateLoopDisplay(); updateProgressDisplay();
+    log(`\n━━━ LOOP ${STATE.currentLoop}/${STATE.maxLoops} ━━━`, 'loop');
+    log('📤 ' + (STATE.currentLoop === 1 ? 'Generating initial code...' : 'Sending correction...'), 'ai-ask');
+
+    const prompt = STATE.currentLoop === 1 ? buildInitialPrompt(target, requirements) : buildCorrectionPrompt(target, requirements);
+
+    try {
+        const t0 = Date.now();
+        const response = await callAI(prompt);
+        const elapsed = ((Date.now()-t0)/1000).toFixed(1);
+        STATE.currentCode = extractCode(response);
+        const tokenEst = Math.round(response.length/4);
+        STATE.totalTokens += tokenEst;
+        updateCost();
+        recordAudit({ type:STATE.currentLoop===1?'generation':'correction', loop:STATE.currentLoop, codeLength:STATE.currentCode.length, tokensEst:tokenEst, apiTime:elapsed+'s' });
+        log(`📥 Received ${STATE.currentCode.length} chars (≈${tokenEst} tokens, ${elapsed}s)`, 'ai-response');
+        updatePreview(STATE.currentCode);
+        await validateAndLoop(target, requirements);
+    } catch(error) {
+        log('❌ API ERROR: ' + error.message, 'error');
+        recordAudit({ type:'error', loop:STATE.currentLoop, error:error.message });
+        finishRun();
+    }
+}
+
+function buildInitialPrompt(target, req) {
+    return `You are an expert web developer. Create a COMPLETE, WORKING single-file HTML application for:\n\nTARGET: ${target}\n${req?`\nADDITIONAL REQUIREMENTS:\n${req}`:''}\n\nCRITICAL RULES:\n1. Output ONLY the HTML code, nothing else\n2. Include ALL CSS in a <style> tag\n3. Include ALL JavaScript in a <script> tag\n4. Make it fully functional with sample data\n5. Use modern, professional styling\n6. Include error handling\n7. Make it mobile-responsive\n8. Add alt attributes to all images\n9. Include viewport meta tag\n10. Do NOT use eval()\n\nStart with <!DOCTYPE html> and end with </html>. No explanations, no markdown.`;
+}
+
+function buildCorrectionPrompt(target, req) {
+    const errorList = STATE.errorHistory[STATE.errorHistory.length-1]?.map((e,i)=>`${i+1}. ${e}`).join('\n') || 'Unknown errors';
+    return `Your previous code had these errors:\n\n${errorList}\n\nFix ALL errors and provide the COMPLETE corrected code.\n\nORIGINAL TARGET: ${target}\n${req?`REQUIREMENTS: ${req}`:''}\n\nCRITICAL:\n1. Output ONLY corrected HTML code\n2. Fix EVERY error listed above\n3. Keep all existing functionality\n4. Start with <!DOCTYPE html> and end with </html>\n5. No explanations\n\nPrevious code (first 2000 chars):\n\`\`\`html\n${STATE.currentCode.substring(0,2000)}...\n\`\`\`\n\nProvide the FULL corrected code:`;
+}
+
+async function validateAndLoop(target, requirements) {
+    if (STATE.aborted) { log('⛔ ABORTED BY USER','error'); recordAudit({type:'abort'}); finishRun(); return; }
+
+    log('🔍 Validating code...', 'system');
+    const structErrors = validateStructure(STATE.currentCode);
+    const complianceErrors = validateCompliance(STATE.currentCode);
+    const allErrors = [...structErrors, ...complianceErrors];
+
+    // Update compliance score
+    STATE.complianceScore = Math.max(0, 100 - (complianceErrors.length * 10) - (structErrors.length * 15));
+    updateComplianceBadge(STATE.complianceScore);
+
+    if (allErrors.length === 0) {
+        log('✅ ALL VALIDATIONS PASSED — Code is clean!', 'success');
+        recordAudit({ type:'validation_pass', errorsFound:0, complianceScore:STATE.complianceScore });
+        STATE.finalCode = STATE.currentCode;
+        stats.successes++;
+        updateStats();
+        showSuccessModal();
+        finishRun();
+        return;
+    }
+
+    STATE.errorsThisRun += allErrors.length;
+    stats.errorsFix += allErrors.length;
+    STATE.errorHistory.push(allErrors);
+    updateStats();
+    recordAudit({ type:'validation_fail', errorsFound:allErrors.length, errors:allErrors.slice(), complianceScore:STATE.complianceScore });
+
+    log(`⚠️ ${allErrors.length} issues found:`, 'warning');
+    allErrors.forEach((err,i) => log(`  ${i+1}. ${err}`, 'error'));
+
+    if (STATE.currentLoop >= STATE.maxLoops) {
+        log('🛑 GOVERNANCE ENFORCED — Loop limit reached. Human decision required.', 'governance');
+        recordAudit({ type:'killswitch', reason:'Max loops reached', errorsRemaining:allErrors.length });
+        STATE.finalCode = STATE.currentCode;
+        STATE.errorsResolved = STATE.errorsThisRun - allErrors.length;
+        showNegotiateModal(allErrors);
+        return;
+    }
+
+    await generateCode(target, requirements);
+}
+
+// ═══ NEGOTIATE (Kill Switch Hit) ═══
+function showNegotiateModal(remainingErrors) {
+    const resolved = STATE.errorsThisRun - remainingErrors.length;
+    const pct = STATE.errorsThisRun > 0 ? Math.round((resolved/STATE.errorsThisRun)*100) : 0;
+    document.getElementById('negotiateStats').innerHTML =
+        `Loops Used: <strong>${STATE.currentLoop}</strong> / ${STATE.maxLoops}<br>` +
+        `Errors Resolved: <strong>${resolved}</strong> of ${STATE.errorsThisRun}<br>` +
+        `Remaining Issues: <strong>${remainingErrors.length}</strong><br>` +
+        `Improvement: <strong>${pct}%</strong><br>` +
+        `Compliance Score: <strong>${STATE.complianceScore}/100</strong>`;
+    document.getElementById('negotiateModal').classList.add('active');
+}
+
+function acceptCurrentResult() {
+    document.getElementById('negotiateModal').classList.remove('active');
+    showSuccessModal();
+    finishRun();
+}
+
+function extendAndResume() {
+    document.getElementById('negotiateModal').classList.remove('active');
+    STATE.maxLoops = Math.min(STATE.maxLoops + 3, 13);
+    document.getElementById('maxLoopSlider').value = Math.min(STATE.maxLoops,10);
+    document.getElementById('maxLoopDisplay').textContent = STATE.maxLoops;
+    log(`🔄 GOVERNANCE EXTENDED — New limit: ${STATE.maxLoops} loops`, 'warning');
+    recordAudit({ type:'governance_extended', newMax:STATE.maxLoops });
+    updateProgressDisplay();
+    generateCode(STATE.target, STATE.requirements);
+}
+
+// ═══ VALIDATION ═══
+function validateStructure(code) {
+    const errors = [];
+    if (!code.includes('<!DOCTYPE html>') && !code.includes('<!doctype html>')) errors.push('Missing <!DOCTYPE html>');
+    if (!code.includes('<html')) errors.push('Missing <html> tag');
+    if (!code.includes('<head>') && !code.includes('<head ')) errors.push('Missing <head>');
+    if (!code.includes('<body>') && !code.includes('<body ')) errors.push('Missing <body>');
+    if (!code.includes('</html>')) errors.push('Missing </html>');
+
+    const openTags = (code.match(/<(div|span|p|ul|li|table|tr|td|section|article|header|footer|nav|main|form|button|a|h[1-6])[^>]*>/gi)||[]).length;
+    const closeTags = (code.match(/<\/(div|span|p|ul|li|table|tr|td|section|article|header|footer|nav|main|form|button|a|h[1-6])>/gi)||[]).length;
+    if (Math.abs(openTags-closeTags)>5) errors.push(`Tag mismatch: ${openTags} open vs ${closeTags} close`);
+
+    const scriptMatch = code.match(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+    if (scriptMatch) {
+        scriptMatch.forEach(s => {
+            const js = s.replace(/<\/?script[^>]*>/gi,'');
+            const ob=(js.match(/{/g)||[]).length, cb=(js.match(/}/g)||[]).length;
+            if (ob!==cb) errors.push(`JS: Unclosed braces (${ob} open, ${cb} close)`);
+            const op=(js.match(/\(/g)||[]).length, cp=(js.match(/\)/g)||[]).length;
+            if (Math.abs(op-cp)>3) errors.push(`JS: Parenthesis mismatch (${op} open, ${cp} close)`);
+        });
+    }
+    return errors;
+}
+
+function validateCompliance(code) {
+    const errors = [];
+    // Security
+    if (code.includes('eval(')) errors.push('Security: eval() detected — potential XSS risk');
+    if (/javascript:/i.test(code)) errors.push('Security: javascript: URL detected');
+    // Accessibility
+    const imgs = code.match(/<img[^>]*>/gi)||[];
+    const noAlt = imgs.filter(i=>!i.includes('alt='));
+    if (noAlt.length>0) errors.push(`Accessibility: ${noAlt.length} <img> missing alt attribute`);
+    // Standards
+    if (!code.includes('viewport')) errors.push('Standards: Missing viewport meta tag (not mobile-responsive)');
+    if (!code.includes('charset')) errors.push('Standards: Missing charset declaration');
+    // Quality
+    if (/<script[^>]*>\s*<\/script>/i.test(code)) errors.push('Quality: Empty <script> block detected');
+    const consoleLogs = (code.match(/console\.(log|warn|error)/g)||[]).length;
+    if (consoleLogs>5) errors.push(`Quality: ${consoleLogs} console statements (consider cleanup)`);
+    return errors;
+}
+
+// ═══ LIVE PREVIEW ═══
+function updatePreview(code) {
+    try {
+        const wrap = document.getElementById('previewWrap');
+        const frame = document.getElementById('previewFrame');
+        wrap.classList.add('active');
+        document.getElementById('previewLabel').textContent = 'SANDBOX PREVIEW — Loop ' + STATE.currentLoop;
+        frame.srcdoc = code;
+    } catch(e) { /* silent fail on preview */ }
+}
+
+// ═══ CODE EXTRACTION ═══
+function extractCode(text) {
+    let code = text;
+    const htmlMatch = code.match(/```html\s*\n?([\s\S]*?)```/i);
+    if (htmlMatch) return htmlMatch[1].trim();
+    const genericMatch = code.match(/```\s*\n?([\s\S]*?)```/);
+    if (genericMatch && genericMatch[1].includes('<')) return genericMatch[1].trim();
+    if (code.trim().startsWith('<!') || code.trim().startsWith('<html')) return code.trim();
+    const docStart = code.indexOf('<!DOCTYPE');
+    const htmlStart = code.indexOf('<html');
+    const start = docStart!==-1 ? docStart : htmlStart;
+    if (start!==-1) { const end = code.lastIndexOf('</html>'); if (end!==-1) return code.slice(start,end+7).trim(); }
+    return code.trim();
+}
+
+// ═══ LEARNING SUMMARY ═══
+function generateLearningSummary() {
+    const totalErrors = STATE.errorsThisRun;
+    const loops = STATE.currentLoop;
+    const allErrors = STATE.errorHistory.flat();
+    const errorTypes = {};
+    allErrors.forEach(e => { const type = e.split(':')[0] || 'Other'; errorTypes[type] = (errorTypes[type]||0)+1; });
+    const topErrors = Object.entries(errorTypes).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const improving = STATE.errorHistory.length>=2 && STATE.errorHistory[STATE.errorHistory.length-1].length < STATE.errorHistory[0].length;
+
+    let html = '<div class="learning-summary"><div class="learning-title">🧠 What the Agent Learned</div>';
+    html += `<div class="learning-item">Completed ${loops} loop${loops>1?'s':''} — found ${totalErrors} total issues</div>`;
+    html += `<div class="learning-item">Compliance Score: ${STATE.complianceScore}/100</div>`;
+    if (topErrors.length > 0) {
+        html += '<div class="learning-item">Most common issues: ' + topErrors.map(([t,c])=>`${t} (${c}x)`).join(', ') + '</div>';
+    }
+    if (improving) html += '<div class="learning-item" style="color:var(--success);">✅ Error count decreased across loops — agent demonstrated iterative improvement</div>';
+    if (STATE.complianceScore >= 90) html += '<div class="learning-item" style="color:var(--success);">✅ Final output meets enterprise compliance standards</div>';
+    html += '</div>';
+    return html;
+}
+
+// ═══ REPORTS ═══
+function generateLoopReport() {
+    let md = `# 🔄 Loop Sentinel v2 — Governance Report\n\n`;
+    md += `**Generated:** ${new Date().toLocaleString()}\n**Provider:** ${STATE.provider==='azure'?'Azure OpenAI':'Anthropic Claude'}\n**Target:** ${STATE.target}\n**Max Loops:** ${STATE.maxLoops}\n**Compliance Score:** ${STATE.complianceScore}/100\n\n`;
+    md += `## Summary\n| Metric | Value |\n|--------|-------|\n`;
+    md += `| Total Loops | ${STATE.currentLoop} |\n| Errors Found | ${STATE.errorsThisRun} |\n| Tokens Used | ≈${STATE.totalTokens.toLocaleString()} |\n| Total Time | ${document.getElementById('timeDisplay').textContent} |\n\n`;
+    md += `## Loop-by-Loop Audit\n\n`;
+    auditTrail.forEach(a => { md += `- **[${a.timestamp}]** ${a.type} — Loop ${a.loopNumber} (${a.elapsed})\n`; if (a.errors) md += a.errors.map(e=>`  - ${e}`).join('\n')+'\n'; });
+    md += `\n---\n\n## Responsible AI Design\n- **Kill Switch:** ${STATE.maxLoops}-loop limit enforced\n- **Audit Trail:** ${auditTrail.length} events recorded\n- **Compliance:** ${STATE.complianceScore}/100\n\nBuilt by **Dr. Mullair Jeudi, MD** · Kristal Labs\n*"AI can THINK autonomously but should not ACT autonomously"*\n`;
+    return md;
+}
+
+function exportLoopReport() {
+    if (auditTrail.length === 0) { log('Run a loop first to generate report data.','warning'); return; }
+    const md = generateLoopReport();
+    const blob = new Blob([md],{type:'text/markdown'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`sentinel_report_${Date.now()}.md`; a.click();
+    log('📄 Markdown report exported','success');
+}
+
+function exportAuditJSON() {
+    if (auditTrail.length === 0) { log('Run a loop first to generate audit data.','warning'); return; }
+    const report = {
+        meta:{ tool:'Loop Sentinel v2 Microsoft Edition', builder:'Kristal Labs', timestamp:new Date().toISOString(), provider:STATE.provider, maxLoops:STATE.maxLoops },
+        target:STATE.target, requirements:STATE.requirements,
+        loops:auditTrail,
+        result:{ success:STATE.finalCode!=='', totalLoops:STATE.currentLoop, totalTokens:STATE.totalTokens, complianceScore:STATE.complianceScore, errorsFound:STATE.errorsThisRun },
+        finalCode:STATE.finalCode
+    };
+    const blob = new Blob([JSON.stringify(report,null,2)],{type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`sentinel_audit_${Date.now()}.json`; a.click();
+    log('📊 JSON audit exported','success');
+}
+
+// ═══ UI HELPERS ═══
+function finishRun() { stopTimer(); setRunningState(false); document.getElementById('exportMdBtn').style.display='flex'; document.getElementById('exportJsonBtn').style.display='flex'; document.getElementById('reportBtnTop').style.display='inline-flex'; }
+
+function setRunningState(running) {
+    STATE.isRunning = running;
+    const btn = document.getElementById('launchBtn');
+    const abort = document.getElementById('abortBtn');
+    const dot = document.getElementById('terminalDot');
+    const sdot = document.getElementById('statusDot');
+    const stxt = document.getElementById('statusText');
+    const icon = document.getElementById('logoIcon');
+    if (running) { btn.disabled=true; btn.classList.add('running'); btn.innerHTML='<span>🔄</span><span>LOOP RUNNING...</span>'; abort.classList.add('visible'); dot.classList.add('active'); sdot.classList.add('running'); stxt.textContent='Loop in progress...'; icon.classList.remove('paused'); document.getElementById('progressStatusText').textContent='Running...'; }
+    else { btn.disabled=false; btn.classList.remove('running'); btn.innerHTML='<span>🚀</span><span>INITIATE LOOP SENTINEL</span>'; abort.classList.remove('visible'); dot.classList.remove('active'); sdot.classList.remove('running'); stxt.textContent='Ready'; icon.classList.add('paused'); document.getElementById('terminalBody').classList.remove('warning-zone','danger-zone'); document.getElementById('progressStatusText').textContent = STATE.currentLoop > 0 ? 'Complete' : 'Ready'; }
+}
+
+function abortLoop() { STATE.aborted=true; log('⛔ ABORT SIGNAL SENT...','error'); }
+function updateLoopDisplay() { document.getElementById('loopCount').textContent=STATE.currentLoop; }
+function updateStats() { document.getElementById('loopCount').textContent=stats.loops; document.getElementById('errorCount').textContent=stats.errorsFix; document.getElementById('successCount').textContent=stats.successes; }
+
+function log(message,type='system') {
+    const t = document.getElementById('terminalBody');
+    const e = document.createElement('div'); e.className='log-entry '+type;
+    e.innerHTML=`<div class="log-header"><span class="log-label">${getLabelForType(type)}</span><span class="log-time">${getTime()}</span></div><div class="log-content">${escapeHtml(message)}</div>`;
+    t.appendChild(e); t.scrollTop=t.scrollHeight;
+}
+function getLabelForType(t) { return {system:'System','ai-ask':'AI ← Prompt','ai-response':'AI → Response',error:'Error',warning:'Governance',success:'Pass',loop:'Loop',diff:'Diff',governance:'⛔ GOVERNANCE'}[t]||'Log'; }
+function getTime() { return new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function clearTerminal() { document.getElementById('terminalBody').innerHTML='<div class="log-entry system"><div class="log-header"><span class="log-label">System</span><span class="log-time">'+getTime()+'</span></div><div class="log-content">Terminal cleared.</div></div>'; }
+function exportLogs() { const l=document.getElementById('terminalBody').innerText; const b=new Blob([l],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='sentinel_logs_'+Date.now()+'.txt'; a.click(); }
+
+function showSuccessModal() {
+    document.getElementById('finalCode').textContent = STATE.finalCode;
+    document.getElementById('learningSummary').innerHTML = generateLearningSummary();
+    document.getElementById('modalTitle').textContent = STATE.complianceScore >= 90 ? '✅ Compliance Checks Passed — Code Ready' : '⚠️ Code Generated — Review Advised';
+    document.getElementById('successModal').classList.add('active');
+}
+function closeModal() { document.getElementById('successModal').classList.remove('active'); }
+function copyFinalCode() { navigator.clipboard.writeText(STATE.finalCode).then(()=>log('📋 Code copied!','success')); }
+function downloadCode() { const b=new Blob([STATE.finalCode],{type:'text/html'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='sentinel_output_'+Date.now()+'.html'; a.click(); closeModal(); }
+
+let timerInterval=null;
+function startTimer() { STATE.startTime=Date.now(); timerInterval=setInterval(()=>{ const s=Math.floor((Date.now()-STATE.startTime)/1000); document.getElementById('timeDisplay').textContent=s<60?s+'s':Math.floor(s/60)+'m '+(s%60)+'s'; },1000); }
+function stopTimer() { if(timerInterval)clearInterval(timerInterval); }
+
+document.getElementById('successModal').addEventListener('click',(e)=>{if(e.target.id==='successModal')closeModal();});
+document.getElementById('negotiateModal').addEventListener('click',(e)=>{if(e.target.id==='negotiateModal'){/* don't close negotiate */}});
+</script>
+</body>
+</html>

@@ -75,7 +75,7 @@ Loop Sentinel builds it in from the start.
 
 ## Live Demo
 
-🔗 [Deployed on Azure Static Web Apps](https://witty-sand-0a53b9c1e6.azurestaticapps.net)
+🔗 [Deployed on Azure Static Web Apps](https://witty-sand-0a53b9c1e.6.azurestaticapps.net)
 
 ## Built With
 
